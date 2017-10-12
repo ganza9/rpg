@@ -100,6 +100,7 @@ export class Character {
     if(target.hitPoints <= 0){
       this.experience += 250;
       target.experience = 0;
+      target.team.changeLead();
     }
     if(this.experience >= this.expBar && this.player){
       this.levelUp();
@@ -108,9 +109,10 @@ export class Character {
 }
 
 export class Equipment {
-  constructor(name, type, attackBonuses, defenseBonus, value) {
+  constructor(name, weapon, armor, attackBonuses, defenseBonus, value) {
     this.name = name;
-    this.type = type;
+    this.weapon = weapon;
+    this.armor = armor;
     this.castBonus = attackBonuses[0];
     this.strikeBonus = attackBonuses[1];
     this.sneakBonus = attackBonuses[2];
@@ -120,11 +122,113 @@ export class Equipment {
 }
 
 export class Team {
-  constructor(name, bank) {
+  constructor(name, bank, computerPlayer) {
     this.name = name;
     this.members = [];
     this.bank = bank;
-    this.armors = [];
-    this.weapons = [];
+    this.equipment = [];
+    this.lead;
+    this.computerPlayer = computerPlayer;
+    this.alive = true;
+  }
+
+  addMember(character) {
+    this.members.push(character)
+    if (this.members.length === 1) {
+      this.lead = character;
+    }
+  }
+
+  turn(target){
+    if (this.computerPlayer) {
+      if (this.lead.chrType === "warrior") {
+        this.lead.strike(target)
+      } else if (this.lead.chrType === "mage") {
+        this.lead.cast(target)
+      } else {
+        this.lead.sneak(target)
+      }
+    // } else {
+    //   playerTurn;
+    }
+  }
+
+
+  changeLead() {
+    let startingLead = this.lead
+    this.members.forEach(function(member){
+      if (member.hitPoints > 0) {
+        this.lead = member;
+      }
+    });
+
+    if (this.lead === startingLead) {
+      this.concede()
+    }
+  }
+
+  concede() {
+    this.alive = false;
+  }
+
+  sell(item){
+    let found = false;
+    let length = this.equipment.length;
+    this.equipment = this.equipment.filter(function(workingItem){
+      found = true;
+      return workingItem !== item;
+    });
+    if (found){
+      this.bank += item.value;
+    }
+  }
+
+  buy(item){
+    if (this.bank >= item.value && this.equipment.length < 30){
+      this.bank -= item.value
+      this.equipment.push(item);
+    }
+  }
+
+  add(item){
+    if (this.equipment.length < 30){
+      this.equipment.push(item);
+    }
+  }
+
+  drop(item){
+    this.equipment = this.equipment.filter(function(workingItem){
+      return workingItem !== item;
+    });
+  }
+}
+
+export class Encounter {
+  constructor(team1, team2) {
+    this.team1 = team1;
+    this.team2 = team2;
+  }
+
+  battle() {
+    let turnCounter = 1;
+    let deadTeam;
+    while (this.team1.alive && this.team2.alive) {
+      if(turnCounter % 2 === 1) {
+        this.team1.turn(this.team2.lead)
+      } else {
+        this.team2.turn(this.team1.lead)
+      }
+      turnCounter++;
+    }
+    if(this.team1.alive){
+      deadTeam = this.team2
+    } else {
+      deadTeam = this.team1
+    }
+    if (deadTeam.computerPlayer) {
+      return ("You defeated the computer Player!")
+    } else {
+      return ("Sorry, you were defeated by the computer player.  :(")
+    }
   }
 }
